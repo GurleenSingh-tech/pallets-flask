@@ -63,6 +63,8 @@ def register():
         elif len(password) < 8:
 	     error = "Password must be at least 8 characters long."
 
+	elif len(password) < 8: error = "Password must be at least 8 characters long." 
+
         if error is None:
             try:
                 db.execute(
