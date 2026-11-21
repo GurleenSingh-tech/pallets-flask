@@ -16,6 +16,35 @@ def test_index(client, auth):
     assert b'href="/1/update"' in response.data
 
 
+def test_search_case_insensitive_and_no_results(client, app):
+    response = client.get("/?q=TEST")
+    assert b"test title" in response.data
+    assert b"No s'han trobat publicacions" not in response.data
+
+    with app.app_context():
+        db = get_db()
+        db.execute(
+            "INSERT INTO post (title, body, author_id, created)"
+            " VALUES (?, ?, 1, ?)",
+            ("Older post", "Nothing special", "2017-01-01 00:00:00"),
+        )
+        db.execute(
+            "INSERT INTO post (title, body, author_id, created)"
+            " VALUES (?, ?, 1, ?)",
+            ("Newer post", "Test content", "2019-01-01 00:00:00"),
+        )
+        db.commit()
+
+    response = client.get("/posts?q=TESt")
+    assert b"Newer post" in response.data
+    assert b"test title" in response.data
+    assert b"Older post" not in response.data
+    assert response.data.find(b"Newer post") < response.data.find(b"test title")
+
+    response = client.get("/?q=missing")
+    assert b"No s'han trobat publicacions" in response.data
+
+
 @pytest.mark.parametrize("path", ("/create", "/1/update", "/1/delete"))
 def test_login_required(client, path):
     response = client.post(path)

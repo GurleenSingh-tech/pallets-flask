@@ -13,16 +13,37 @@ from .db import get_db
 bp = Blueprint("blog", __name__)
 
 
+def _render_posts():
+    db = get_db()
+    query = request.args.get("q", request.args.get("search", "")).strip()
+    sql = (
+        "SELECT p.id, title, body, created, author_id, username"
+        " FROM post p JOIN user u ON p.author_id = u.id"
+    )
+    params = []
+
+    if query:
+        conditions = []
+        for term in query.split():
+            conditions.append("(LOWER(title) LIKE LOWER(?) OR LOWER(body) LIKE LOWER(?))")
+            params.extend((f"%{term}%", f"%{term}%"))
+        sql += " WHERE " + " AND ".join(conditions)
+
+    sql += " ORDER BY created DESC"
+    posts = db.execute(sql, params).fetchall()
+    return render_template("blog/index.html", posts=posts, query=query)
+
+
 @bp.route("/")
 def index():
     """Show all the posts, most recent first."""
-    db = get_db()
-    posts = db.execute(
-        "SELECT p.id, title, body, created, author_id, username"
-        " FROM post p JOIN user u ON p.author_id = u.id"
-        " ORDER BY created DESC"
-    ).fetchall()
-    return render_template("blog/index.html", posts=posts)
+    return _render_posts()
+
+
+@bp.route("/posts")
+def posts():
+    """Show the posts page with search support."""
+    return _render_posts()
 
 
 def get_post(id, check_author=True):
